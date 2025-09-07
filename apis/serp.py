@@ -1,11 +1,7 @@
-import os
 from serpapi import GoogleSearch
 from typing import Optional, Dict, Any, List
 from datetime import datetime, timedelta
-from dotenv import load_dotenv
-
-load_dotenv()
-api_key = os.getenv("SERP_API_KEY")
+from models.flight import Flight, LayOver, FlightSearchParams, FlightSearchResult, FlightSearchResponse
 
 class SerpApi:
     def __init__(self, api_key: str) -> None:
@@ -13,21 +9,8 @@ class SerpApi:
     
     async def get_flights(
         self,
-        departure_id: str,
-        arrival_id: str,
-        departure_date: str,
-        adults: int,
-        return_date: Optional[str] = None,
-        type: Optional[int] = 1,
-        travel_class: Optional[int] = 1,
-        children: Optional[int] = 0,
-        infants_in_seat: Optional[int] = 0,
-        infants_in_lap: Optional[int] = 0,
-        stops: Optional[int] = 0,
-        bags: Optional[int] = 0,
-        max_price: Optional[float] = None,
-        search_location: Optional[str] = "us",
-    ) -> Dict[str, Any]:
+        data: FlightSearchParams
+    ) -> List[Dict[str, Any]]:
         """
         Get flights from Google Flights via SerpAPI.
 
@@ -53,26 +36,31 @@ class SerpApi:
         
         params: Dict[str, Any] = {
             "engine": "google_flights",
-            "departure_id": departure_id,
-            "arrival_id": arrival_id,
-            "outbound_date": departure_date,
-            "adults": adults,
-            "type": type,
-            "travel_class": travel_class,
-            "children": children,
-            "infants_in_seat": infants_in_seat,
-            "infants_in_lap": infants_in_lap,
-            "stops": stops,
-            "bags": bags,
-            "gl": search_location,
+            "departure_id": data.departure_id,
+            "arrival_id": data.arrival_id,
+            "outbound_date": data.departure_date,
+            "adults": data.adults,
+            "children": data.children,
+            "infants_in_seat": data.infants_in_seat,
+            "infants_in_lap": data.infants_in_lap,
+            "type": data.type,
+            "cabin_class": data.cabin_class,
+            "stops": data.stops,
+            "bags": data.bags,
+            "search_location": data.search_location,
             "api_key": self.api_key
         }
         
-        if return_date:
-            params["return_date"] = return_date
-        if max_price:
-            params["max_price"] = max_price
+        if data.return_date:
+            params["return_date"] = data.return_date
+        if data.max_price:
+            params["max_price"] = data.max_price
         
         search = GoogleSearch(params)
-        results = search.get_dict()
-        return results
+        results: Dict[Any, Any] = search.get_dict()
+        if results.get("error"):
+            raise RuntimeError(f"SerpAPI Error: {results['error']}")
+        
+        all_flights: List[Dict[str, Any]] = results.get("best_flights", []) + results.get("other_flights", [])
+        
+        return all_flights
